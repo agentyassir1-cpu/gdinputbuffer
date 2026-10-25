@@ -2,6 +2,7 @@
 #include <Geode/modify/GJBaseGameLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/CCKeyboardDispatcher.hpp>
+#include <algorithm>
 #include <deque>
 
 using namespace geode::prelude;
@@ -21,13 +22,20 @@ namespace gdinput {
         {32, 0}
     };
     constexpr int OFF = 4;
-    inline int stage = 0;
+
+    // The stage lives in a Geode setting ("buffer-stage", 1..5) so it can be
+    // changed from the mod settings on devices without an F6 key (Android).
+    // Setting value 1..4 = stages 0..3, 5 = OFF.
+    inline int currentStage() {
+        auto value = Mod::get()->getSettingValue<int64_t>("buffer-stage");
+        return static_cast<int>(std::clamp<int64_t>(value - 1, 0, OFF));
+    }
 
     inline bool verbose() {
         return Mod::get()->getSettingValue<bool>("verbose-log");
     }
 
-    inline void showStage() {
+    inline void showStage(int stage) {
         if (stage == OFF) {
             log::info("[GDInput] Jump buffer OFF");
             Notification::create("GDInput  |  OFF", NotificationIcon::Info)->show();
@@ -68,8 +76,9 @@ class $modify(GDInputBaseLayer, GJBaseGameLayer) {
 
     void handleButton(bool down, int button, bool isPlayer1) {
         auto* fields = m_fields.self();
+        const int stage = gdinput::currentStage();
 
-        if (fields->applying || gdinput::stage == gdinput::OFF ||
+        if (fields->applying || stage == gdinput::OFF ||
             button != GDINPUT_JUMP_BUTTON) {
             GJBaseGameLayer::handleButton(down, button, isPlayer1);
             return;
@@ -102,7 +111,7 @@ class $modify(GDInputBaseLayer, GJBaseGameLayer) {
         // Only buffer an early jump press. Other buttons, including orbs and
         // directional inputs, pass through immediately and keep their timing.
         if (down && !player->m_isDart && !player->m_isOnGround) {
-            const int window = gdinput::STAGES[gdinput::stage].bufferTicks;
+            const int window = gdinput::STAGES[stage].bufferTicks;
             if (pending != fields->pendingJumps.end()) {
                 pending->remaining = window;
                 pending->released = false;
@@ -177,8 +186,9 @@ class $modify(GDInputPlayLayer, PlayLayer) {
 class $modify(GDInputKeyboard, CCKeyboardDispatcher) {
     bool dispatchKeyboardMSG(enumKeyCodes key, bool down, bool repeat, double timestamp) {
         if (down && !repeat && key == KEY_F6) {
-            gdinput::stage = (gdinput::stage + 1) % 5;
-            gdinput::showStage();
+            const int next = (gdinput::currentStage() + 1) % 5;
+            Mod::get()->setSettingValue<int64_t>("buffer-stage", next + 1);
+            gdinput::showStage(next);
             return true;
         }
         return CCKeyboardDispatcher::dispatchKeyboardMSG(key, down, repeat, timestamp);
@@ -186,5 +196,5 @@ class $modify(GDInputKeyboard, CCKeyboardDispatcher) {
 };
 
 $on_mod(Loaded) {
-    log::info("[GDInput] Loaded. F6 cycles jump buffer windows: 4 -> 8 -> 16 -> 32 ticks -> OFF.");
+    log::info("[GDInput] Loaded. F6 or the 'buffer-stage' setting cycles jump buffer windows: 4 -> 8 -> 16 -> 32 ticks -> OFF.");
 }
