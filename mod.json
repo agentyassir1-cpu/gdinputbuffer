@@ -1,14 +1,28 @@
 {
   "geode": "5.11.2",
   "gd": {
-    "win": "2.2081"
+    "win": "2.2081",
+    "android": "2.2081"
   },
-  "version": "v0.1.0",
+  "version": "v0.1.1",
   "id": "sbtias.gdinput",
   "name": "GDInput Buffer",
   "developer": "Sbtias",
-  "description": "Configurable delayed input buffer for Geometry Dash. Press F6 to cycle delay stages.",
+  "description": "Configurable jump buffer for Geometry Dash. Press F6 or use the settings to cycle stages.",
   "settings": {
+    "buffer-stage": {
+      "type": "int",
+      "name": "Buffer stage",
+      "description": "1 = NOOB (4 ticks), 2 = PRO (8), 3 = BEST MODE (16), 4 = BEST MODE + (32), 5 = OFF. F6 also cycles this on keyboard.",
+      "default": 1,
+      "min": 1,
+      "max": 5,
+      "control": {
+        "input": true,
+        "arrows": true,
+        "slider": true
+      }
+    },
     "verbose-log": {
       "type": "bool",
       "name": "Detailed logging",
